@@ -1,13 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 
 interface TimerBarProps {
@@ -16,47 +8,47 @@ interface TimerBarProps {
 }
 
 export default function TimerBar({ remainingSeconds, totalSeconds }: Readonly<TimerBarProps>) {
-  const progress = useSharedValue(1);
-  const pulse = useSharedValue(1);
+  const progress = useRef(new Animated.Value(1)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
 
-  const isLow = remainingSeconds < 300; // < 5 minutes
+  const isLow = remainingSeconds < 300;
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
 
   useEffect(() => {
     const ratio = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
-    progress.value = withTiming(ratio, {
+    Animated.timing(progress, {
+      toValue: ratio,
       duration: 800,
       easing: Easing.out(Easing.quad),
-    });
+      useNativeDriver: false,
+    }).start();
   }, [remainingSeconds, totalSeconds]);
 
   useEffect(() => {
     if (isLow) {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 500 }),
-          withTiming(1, { duration: 500 })
-        ),
-        -1,
-        false
-      );
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.05, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      ).start();
     } else {
-      pulse.value = withTiming(1);
+      pulse.stopAnimation();
+      Animated.timing(pulse, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
   }, [isLow]);
 
-  const barStyle = useAnimatedStyle(() => ({
-    flex: progress.value,
-    backgroundColor: isLow ? Colors.error : Colors.success,
-  }));
+  const barWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
+  const barColor = isLow ? Colors.error : Colors.success;
 
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
+    <Animated.View style={[styles.container, { transform: [{ scale: pulse }] }]}>
       <View style={styles.header}>
         <Text style={styles.label}>เวลาที่เหลือ</Text>
         <Text style={[styles.time, isLow && styles.timeLow]}>
@@ -64,8 +56,7 @@ export default function TimerBar({ remainingSeconds, totalSeconds }: Readonly<Ti
         </Text>
       </View>
       <View style={styles.track}>
-        <Animated.View style={[styles.bar, barStyle]} />
-        <View style={styles.barRemainder} />
+        <Animated.View style={[styles.bar, { width: barWidth, backgroundColor: barColor }]} />
       </View>
       {isLow && (
         <Text style={styles.warning}>⚠️ เวลาใกล้หมดแล้ว!</Text>
@@ -106,14 +97,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     borderRadius: BorderRadius.round,
     overflow: 'hidden',
-    flexDirection: 'row',
   },
   bar: {
     height: 16,
     borderRadius: BorderRadius.round,
-  },
-  barRemainder: {
-    flex: 1,
   },
   warning: {
     marginTop: Spacing.sm,
