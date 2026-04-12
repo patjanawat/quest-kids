@@ -47,7 +47,7 @@ export default function TimerBar({ remainingSeconds, totalSeconds }: Readonly<Ti
   }, [isLow]);
 
   const barStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
+    flex: progress.value,
     backgroundColor: isLow ? Colors.error : Colors.success,
   }));
 
@@ -65,6 +65,7 @@ export default function TimerBar({ remainingSeconds, totalSeconds }: Readonly<Ti
       </View>
       <View style={styles.track}>
         <Animated.View style={[styles.bar, barStyle]} />
+        <View style={styles.barRemainder} />
       </View>
       {isLow && (
         <Text style={styles.warning}>⚠️ เวลาใกล้หมดแล้ว!</Text>
@@ -105,10 +106,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     borderRadius: BorderRadius.round,
     overflow: 'hidden',
+    flexDirection: 'row',
   },
   bar: {
-    height: '100%',
+    height: 16,
     borderRadius: BorderRadius.round,
+  },
+  barRemainder: {
+    flex: 1,
   },
   warning: {
     marginTop: Spacing.sm,
