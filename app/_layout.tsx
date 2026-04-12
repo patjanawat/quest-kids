@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
 
 const theme = {
@@ -14,12 +15,14 @@ const theme = {
 
 export default function RootLayout() {
   return (
-    <PaperProvider theme={theme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="rewards" />
-        <Stack.Screen name="parent" />
-      </Stack>
-    </PaperProvider>
+    <SafeAreaProvider>
+      <PaperProvider theme={theme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="rewards" />
+          <Stack.Screen name="parent" />
+        </Stack>
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 }
