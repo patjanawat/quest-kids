@@ -175,6 +175,33 @@ export const useQuestStore = create<QuestStore>()(
     {
       name: 'little-heroes-store',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      migrate: (persistedState: unknown, _version: number) => {
+        const state = persistedState as Record<string, unknown>;
+        // Fix string booleans that may have been persisted in older versions
+        const boolFields = ['timerActive', 'pendingApproval'] as const;
+        for (const field of boolFields) {
+          if (typeof state[field] === 'string') {
+            state[field] = state[field] === 'true';
+          }
+        }
+        // Fix string numbers
+        if (typeof state['totalEarnedMinutes'] === 'string') {
+          state['totalEarnedMinutes'] = Number(state['totalEarnedMinutes']) || 0;
+        }
+        if (typeof state['timerRemainingSeconds'] === 'string') {
+          state['timerRemainingSeconds'] = Number(state['timerRemainingSeconds']) || 0;
+        }
+        if (typeof state['pinFailCount'] === 'string') {
+          state['pinFailCount'] = Number(state['pinFailCount']) || 0;
+        }
+        return state;
+      },
+      partialize: (state) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { completedQuests, isTimerActive, ...rest } = state;
+        return rest;
+      },
     }
   )
 );
