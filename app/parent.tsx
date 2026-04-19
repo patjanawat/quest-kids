@@ -67,7 +67,7 @@ export default function ParentScreen() {
     Alert.alert('ปฏิเสธแล้ว', 'ไม่อนุมัติคำขอนี้');
   }
 
-  function handleAddQuest(quest: { title: string; description: string; icon: string; rewardMinutes: number }) {
+  function handleAddQuest(quest: { title: string; description: string; icon: string; rewardMinutes: number; xpReward: number }) {
     addQuest(quest);
     setShowQuestForm(false);
   }

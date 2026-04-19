@@ -1,15 +1,37 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, Quest, QuestStoreActions, ParentSettings } from '../types';
+import { AppState, Quest, QuestStoreActions, ParentSettings, KidProgress } from '../types';
 
 const DEFAULT_PIN = '1234';
 
+const LEVEL_TITLES = ['มือใหม่', 'นักสำรวจ', 'นักผจญภัย', 'นักรบ', 'วีรบุรุษ', 'ตำนาน'];
+const LEVEL_XP_THRESHOLDS = [0, 50, 120, 220, 350, 520];
+
+function computeProgress(totalXp: number, streakDays: number, lastStreakDate: string): KidProgress {
+  let currentLevel = 1;
+  for (let i = LEVEL_XP_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalXp >= LEVEL_XP_THRESHOLDS[i]) { currentLevel = i + 1; break; }
+  }
+  const isMaxLevel = currentLevel >= LEVEL_TITLES.length;
+  const xpThisLevel = totalXp - LEVEL_XP_THRESHOLDS[currentLevel - 1];
+  const xpToNextLevel = isMaxLevel ? 0 : LEVEL_XP_THRESHOLDS[currentLevel] - totalXp;
+  return {
+    totalXp,
+    currentLevel,
+    currentLevelTitle: LEVEL_TITLES[currentLevel - 1],
+    xpToNextLevel,
+    xpThisLevel,
+    streakDays,
+    lastStreakDate,
+  };
+}
+
 const defaultQuests: Quest[] = [
-  { id: '1', title: 'ทำการบ้านให้เสร็จ', description: 'ทำการบ้านทุกวิชาให้เสร็จสิ้น', icon: '📚', rewardMinutes: 30, completed: false },
-  { id: '2', title: 'ออกกำลังกาย 20 นาที', description: 'วิ่ง กระโดด หรือเล่นกีฬา 20 นาที', icon: '🏃', rewardMinutes: 15, completed: false },
-  { id: '3', title: 'ช่วยงานบ้าน', description: 'ช่วยพ่อแม่ทำงานบ้าน เช่น กวาดบ้าน ล้างจาน', icon: '🧹', rewardMinutes: 10, completed: false },
-  { id: '4', title: 'อ่านหนังสือ 15 นาที', description: 'อ่านหนังสือที่ชอบอย่างน้อย 15 นาที', icon: '📖', rewardMinutes: 20, completed: false },
+  { id: '1', title: 'ทำการบ้านให้เสร็จ', description: 'ทำการบ้านทุกวิชาให้เสร็จสิ้น', icon: '📚', rewardMinutes: 30, xpReward: 20, completed: false },
+  { id: '2', title: 'ออกกำลังกาย 20 นาที', description: 'วิ่ง กระโดด หรือเล่นกีฬา 20 นาที', icon: '🏃', rewardMinutes: 15, xpReward: 10, completed: false },
+  { id: '3', title: 'ช่วยงานบ้าน', description: 'ช่วยพ่อแม่ทำงานบ้าน เช่น กวาดบ้าน ล้างจาน', icon: '🧹', rewardMinutes: 10, xpReward: 8, completed: false },
+  { id: '4', title: 'อ่านหนังสือ 15 นาที', description: 'อ่านหนังสือที่ชอบอย่างน้อย 15 นาที', icon: '📖', rewardMinutes: 20, xpReward: 15, completed: false },
 ];
 
 const defaultSettings: ParentSettings = {
@@ -36,13 +58,16 @@ export const useQuestStore = create<QuestStore>()(
       totalEarnedMinutes: 0,
       pendingApproval: false,
       timerActive: false,
+      activeQuestId: null,
       timerRemainingSeconds: 0,
       timerSessions: [],
       lastResetDate: todayString(),
       pinLockoutUntil: null,
       pinFailCount: 0,
+      progress: computeProgress(0, 0, todayString()),
+      activeCheer: null,
 
-      // Selectors (computed as part of state for simplicity)
+      // Computed selectors
       completedQuests: [],
       isTimerActive: false,
 
@@ -52,10 +77,15 @@ export const useQuestStore = create<QuestStore>()(
           const quests = state.quests.map((q) =>
             q.id === id ? { ...q, completed: true, completedAt: new Date().toISOString() } : q
           );
-          const totalEarnedMinutes = quests
-            .filter((q) => q.completed)
-            .reduce((sum, q) => sum + q.rewardMinutes, 0);
-          return { quests, totalEarnedMinutes, completedQuests: quests.filter((q) => q.completed) };
+          const completedList = quests.filter((q) => q.completed);
+          const totalEarnedMinutes = completedList.reduce((sum, q) => sum + q.rewardMinutes, 0);
+          const totalXp = completedList.reduce((sum, q) => sum + q.xpReward, 0);
+          return {
+            quests,
+            totalEarnedMinutes,
+            completedQuests: completedList,
+            progress: computeProgress(totalXp, state.progress.streakDays, state.progress.lastStreakDate),
+          };
         });
       },
 
@@ -64,10 +94,15 @@ export const useQuestStore = create<QuestStore>()(
           const quests = state.quests.map((q) =>
             q.id === id ? { ...q, completed: false, completedAt: undefined } : q
           );
-          const totalEarnedMinutes = quests
-            .filter((q) => q.completed)
-            .reduce((sum, q) => sum + q.rewardMinutes, 0);
-          return { quests, totalEarnedMinutes, completedQuests: quests.filter((q) => q.completed) };
+          const completedList = quests.filter((q) => q.completed);
+          const totalEarnedMinutes = completedList.reduce((sum, q) => sum + q.rewardMinutes, 0);
+          const totalXp = completedList.reduce((sum, q) => sum + q.xpReward, 0);
+          return {
+            quests,
+            totalEarnedMinutes,
+            completedQuests: completedList,
+            progress: computeProgress(totalXp, state.progress.streakDays, state.progress.lastStreakDate),
+          };
         });
       },
 
@@ -75,10 +110,7 @@ export const useQuestStore = create<QuestStore>()(
 
       approveUnlock: () => {
         set((state) => {
-          const durationMinutes = Math.min(
-            state.totalEarnedMinutes,
-            state.settings.dailyLimitMinutes
-          );
+          const durationMinutes = Math.min(state.totalEarnedMinutes, state.settings.dailyLimitMinutes);
           const session = {
             startedAt: new Date().toISOString(),
             durationMinutes,
@@ -97,21 +129,22 @@ export const useQuestStore = create<QuestStore>()(
       denyUnlock: () => set({ pendingApproval: false }),
 
       addQuest: (quest) => {
-        const newQuest: Quest = {
-          ...quest,
-          id: Date.now().toString(),
-          completed: false,
-        };
+        const newQuest: Quest = { ...quest, id: Date.now().toString(), completed: false };
         set((state) => ({ quests: [...state.quests, newQuest] }));
       },
 
       removeQuest: (id: string) => {
         set((state) => {
           const quests = state.quests.filter((q) => q.id !== id);
-          const totalEarnedMinutes = quests
-            .filter((q) => q.completed)
-            .reduce((sum, q) => sum + q.rewardMinutes, 0);
-          return { quests, totalEarnedMinutes, completedQuests: quests.filter((q) => q.completed) };
+          const completedList = quests.filter((q) => q.completed);
+          const totalEarnedMinutes = completedList.reduce((sum, q) => sum + q.rewardMinutes, 0);
+          const totalXp = completedList.reduce((sum, q) => sum + q.xpReward, 0);
+          return {
+            quests,
+            totalEarnedMinutes,
+            completedQuests: completedList,
+            progress: computeProgress(totalXp, state.progress.streakDays, state.progress.lastStreakDate),
+          };
         });
       },
 
@@ -122,6 +155,10 @@ export const useQuestStore = create<QuestStore>()(
           isTimerActive: true,
           timerRemainingSeconds: state.totalEarnedMinutes * 60,
         }));
+      },
+
+      startQuestTimer: (questId: string) => {
+        set({ activeQuestId: questId });
       },
 
       tickTimer: () => {
@@ -137,7 +174,15 @@ export const useQuestStore = create<QuestStore>()(
         });
       },
 
-      stopTimer: () => set({ timerActive: false, isTimerActive: false }),
+      stopTimer: () => set({ timerActive: false, isTimerActive: false, activeQuestId: null }),
+
+      markCheerRead: () => {
+        set((state) => {
+          if (!state.activeCheer) return {};
+          return { activeCheer: { ...state.activeCheer, readAt: new Date().toISOString() } };
+        });
+        setTimeout(() => set({ activeCheer: null }), 0);
+      },
 
       resetDaily: () => {
         set((state) => ({
@@ -147,11 +192,13 @@ export const useQuestStore = create<QuestStore>()(
           pendingApproval: false,
           timerActive: false,
           isTimerActive: false,
+          activeQuestId: null,
           timerRemainingSeconds: 0,
           timerSessions: [],
           lastResetDate: todayString(),
           pinFailCount: 0,
           pinLockoutUntil: null,
+          progress: computeProgress(0, state.progress.streakDays, state.progress.lastStreakDate),
         }));
       },
 
@@ -175,17 +222,15 @@ export const useQuestStore = create<QuestStore>()(
     {
       name: 'little-heroes-store',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
-      migrate: (persistedState: unknown, _version: number) => {
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
-        // Fix string booleans that may have been persisted in older versions
         const boolFields = ['timerActive', 'pendingApproval'] as const;
         for (const field of boolFields) {
           if (typeof state[field] === 'string') {
             state[field] = state[field] === 'true';
           }
         }
-        // Fix string numbers
         if (typeof state['totalEarnedMinutes'] === 'string') {
           state['totalEarnedMinutes'] = Number(state['totalEarnedMinutes']) || 0;
         }
@@ -194,6 +239,17 @@ export const useQuestStore = create<QuestStore>()(
         }
         if (typeof state['pinFailCount'] === 'string') {
           state['pinFailCount'] = Number(state['pinFailCount']) || 0;
+        }
+        if (version < 2) {
+          if (!state['progress']) state['progress'] = computeProgress(0, 0, todayString());
+          if (!('activeCheer' in state)) state['activeCheer'] = null;
+          if (!('activeQuestId' in state)) state['activeQuestId'] = null;
+          if (Array.isArray(state['quests'])) {
+            state['quests'] = (state['quests'] as Quest[]).map((q) => ({
+              ...q,
+              xpReward: q.xpReward ?? Math.round(q.rewardMinutes * 0.6),
+            }));
+          }
         }
         return state;
       },

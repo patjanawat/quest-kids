@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
 
 interface QuestFormProps {
-  onSubmit: (quest: { title: string; description: string; icon: string; rewardMinutes: number }) => void;
+  onSubmit: (quest: { title: string; description: string; icon: string; rewardMinutes: number; xpReward: number }) => void;
   onCancel: () => void;
 }
 
@@ -17,7 +17,7 @@ export default function QuestForm({ onSubmit, onCancel }: Readonly<QuestFormProp
 
   function handleSubmit() {
     if (!title.trim()) return;
-    onSubmit({ title: title.trim(), description: description.trim(), icon, rewardMinutes });
+    onSubmit({ title: title.trim(), description: description.trim(), icon, rewardMinutes, xpReward: Math.round(rewardMinutes * 0.6) });
   }
 
   return (

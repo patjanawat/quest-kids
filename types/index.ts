@@ -4,6 +4,7 @@ export interface Quest {
   description: string;
   icon: string; // emoji
   rewardMinutes: number;
+  xpReward: number;
   completed: boolean;
   completedAt?: string; // ISO date string
 }
@@ -25,17 +26,38 @@ export interface ParentSettings {
   kidProfile: KidProfile;
 }
 
+export interface KidProgress {
+  totalXp: number;
+  currentLevel: number;
+  currentLevelTitle: string;
+  xpToNextLevel: number;
+  xpThisLevel: number;
+  streakDays: number;
+  lastStreakDate: string;
+}
+
+export interface CheerMessage {
+  id: string;
+  text: string;
+  emoji: string;
+  sentAt: string;
+  readAt?: string;
+}
+
 export interface AppState {
   quests: Quest[];
   settings: ParentSettings;
   totalEarnedMinutes: number;
   pendingApproval: boolean;
   timerActive: boolean;
+  activeQuestId: string | null;
   timerRemainingSeconds: number;
   timerSessions: TimerSession[];
   lastResetDate: string; // YYYY-MM-DD
-  pinLockoutUntil: string | null; // ISO date string or null
+  pinLockoutUntil: string | null;
   pinFailCount: number;
+  progress: KidProgress;
+  activeCheer: CheerMessage | null;
 }
 
 export interface QuestStoreActions {
@@ -47,10 +69,12 @@ export interface QuestStoreActions {
   addQuest: (quest: Omit<Quest, 'id' | 'completed' | 'completedAt'>) => void;
   removeQuest: (id: string) => void;
   startTimer: () => void;
+  startQuestTimer: (questId: string) => void;
   tickTimer: () => void;
   stopTimer: () => void;
   resetDaily: () => void;
   updateSettings: (settings: Partial<ParentSettings>) => void;
   recordPinFail: () => void;
   resetPinFails: () => void;
+  markCheerRead: () => void;
 }
