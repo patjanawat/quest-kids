@@ -65,7 +65,9 @@ export interface AppState {
   totalEarnedMinutes: number;
   pendingApproval: boolean;
   timerActive: boolean;
+  timerPaused: boolean;
   activeQuestId: string | null;
+  timerElapsedSeconds: number;
   timerRemainingSeconds: number;
   timerSessions: TimerSession[];
   lastResetDate: string; // YYYY-MM-DD
@@ -89,8 +91,11 @@ export interface QuestStoreActions {
   addQuestsFromLibrary: (libraryIds: string[]) => void;
   startTimer: () => void;
   startQuestTimer: (questId: string) => void;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
   tickTimer: () => void;
   stopTimer: () => void;
+  resetTimer: () => void;
   resetDaily: () => void;
   updateSettings: (settings: Partial<ParentSettings>) => void;
   recordPinFail: () => void;

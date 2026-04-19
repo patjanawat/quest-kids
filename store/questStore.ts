@@ -71,7 +71,9 @@ export const useQuestStore = create<QuestStore>()(
       totalEarnedMinutes: 0,
       pendingApproval: false,
       timerActive: false,
+      timerPaused: false,
       activeQuestId: null,
+      timerElapsedSeconds: 0,
       timerRemainingSeconds: 0,
       timerSessions: [],
       lastResetDate: todayString(),
@@ -172,8 +174,12 @@ export const useQuestStore = create<QuestStore>()(
       },
 
       startQuestTimer: (questId: string) => {
-        set({ activeQuestId: questId });
+        set({ activeQuestId: questId, timerActive: true, isTimerActive: true, timerPaused: false });
       },
+
+      pauseTimer: () => set({ timerPaused: true }),
+      resumeTimer: () => set({ timerPaused: false }),
+      resetTimer: () => set({ timerActive: false, isTimerActive: false, timerPaused: false, timerElapsedSeconds: 0, activeQuestId: null }),
 
       randomizeQuests: () => {
         const mandatory = MANDATORY_IDS.map((id) => {
@@ -216,7 +222,7 @@ export const useQuestStore = create<QuestStore>()(
         });
       },
 
-      stopTimer: () => set({ timerActive: false, isTimerActive: false, activeQuestId: null }),
+      stopTimer: () => set({ timerActive: false, isTimerActive: false, timerPaused: false }),
 
       markCheerRead: () => {
         set((state) => {
@@ -234,7 +240,9 @@ export const useQuestStore = create<QuestStore>()(
           pendingApproval: false,
           timerActive: false,
           isTimerActive: false,
+          timerPaused: false,
           activeQuestId: null,
+          timerElapsedSeconds: 0,
           timerRemainingSeconds: 0,
           timerSessions: [],
           lastResetDate: todayString(),
