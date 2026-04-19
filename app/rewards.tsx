@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,6 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQuestStore } from '../store/questStore';
 import { useTimer } from '../hooks/useTimer';
@@ -33,28 +25,6 @@ export default function RewardsScreen() {
   const totalSeconds = totalEarnedMinutes * 60;
   const isTimeUp = !timerActive && timerRemainingSeconds === 0;
 
-  const celebrateScale = useSharedValue(0);
-  const celebrateRotate = useSharedValue(0);
-
-  useEffect(() => {
-    celebrateScale.value = withSpring(1, { damping: 8, stiffness: 150 });
-    celebrateRotate.value = withRepeat(
-      withSequence(
-        withTiming(0.05, { duration: 150 }),
-        withTiming(-0.05, { duration: 150 }),
-        withTiming(0, { duration: 150 })
-      ),
-      3,
-      false
-    );
-  }, []);
-
-  const celebrateStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: celebrateScale.value },
-      { rotate: `${celebrateRotate.value}rad` },
-    ],
-  }));
 
   function handleStop() {
     stopTimer();
@@ -75,11 +45,11 @@ export default function RewardsScreen() {
           <Text style={styles.backText}>← กลับ</Text>
         </TouchableOpacity>
 
-        <Animated.View style={[styles.heroArea, celebrateStyle]}>
+        <View style={styles.heroArea}>
           <Text style={styles.heroEmoji}>🎮</Text>
           <Text style={styles.heroTitle}>กำลังเล่นอยู่!</Text>
           <Text style={styles.heroSubtitle}>สนุกได้เลย แต่อย่าลืมเวลานะ 😊</Text>
-        </Animated.View>
+        </View>
 
         <View style={styles.timeDisplay}>
           <Text style={styles.timeLabel}>เวลาที่เหลือ</Text>
@@ -98,7 +68,6 @@ export default function RewardsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Time's Up Modal */}
       <Modal visible={isTimeUp} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -176,7 +145,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: 'center',
-    marginTop: 'auto',
+    marginTop: Spacing.lg,
   },
   stopBtnText: {
     fontSize: Typography.fontSizeMd,
