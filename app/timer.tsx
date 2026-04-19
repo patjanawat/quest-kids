@@ -3,23 +3,16 @@ import { View, Text, TouchableOpacity, Alert, Animated, StyleSheet, StatusBar } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuestStore } from '../store/questStore';
+import { useBackgroundTimer } from '../hooks/useBackgroundTimer';
 import DigitalClock from '../components/DigitalClock';
 import QuestContext from '../components/QuestContext';
 import TimerProgressBar from '../components/TimerProgressBar';
 import TimerControls from '../components/TimerControls';
 
-type TimerStatus = 'idle' | 'running' | 'paused' | 'stopped';
-
 export default function TimerScreen() {
   const router = useRouter();
   const { questId } = useLocalSearchParams<{ questId?: string }>();
-
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [centiseconds, setCentiseconds] = useState(0);
-  const [status, setStatus] = useState<TimerStatus>('idle');
   const [donePressed, setDonePressed] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const csIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneOpacity = useRef(new Animated.Value(0)).current;
 
   const quests = useQuestStore((s) => s.quests);
@@ -30,15 +23,10 @@ export default function TimerScreen() {
   const resetTimer = useQuestStore((s) => s.resetTimer);
   const completeQuest = useQuestStore((s) => s.completeQuest);
 
+  const { elapsedSeconds, centiseconds, status, start, pause, resume, stop, reset } = useBackgroundTimer();
+
   const quest = questId ? quests.find((q) => q.id === questId) ?? null : null;
   const targetSeconds = quest ? quest.rewardMinutes * 60 : 0;
-
-  useEffect(() => {
-    return () => {
-      clearInterval(intervalRef.current ?? undefined);
-      clearInterval(csIntervalRef.current ?? undefined);
-    };
-  }, []);
 
   useEffect(() => {
     if (status === 'stopped') {
@@ -48,55 +36,28 @@ export default function TimerScreen() {
     }
   }, [status]);
 
-  function startInterval() {
-    intervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-    csIntervalRef.current = setInterval(() => {
-      setCentiseconds((prev) => (prev + 1) % 100);
-    }, 100);
-  }
-
-  function clearIntervals() {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    if (csIntervalRef.current) { clearInterval(csIntervalRef.current); csIntervalRef.current = null; }
-  }
-
   function handlePlayPause() {
     if (status === 'idle') {
       if (questId) startQuestTimer(questId);
-      setStatus('running');
-      startInterval();
+      start();
     } else if (status === 'running') {
-      clearIntervals();
       pauseTimer();
-      setStatus('paused');
+      pause();
     } else if (status === 'paused') {
       resumeTimer();
-      setStatus('running');
-      startInterval();
+      resume();
     }
   }
 
   function handleStop() {
-    clearIntervals();
     stopTimer();
-    setStatus('stopped');
+    stop();
   }
 
   function handleReset() {
     Alert.alert('รีเซ็ต timer', 'รีเซ็ต timer ใช่ไหม?', [
       { text: 'ยกเลิก', style: 'cancel' },
-      {
-        text: 'รีเซ็ต',
-        onPress: () => {
-          clearIntervals();
-          resetTimer();
-          setElapsedSeconds(0);
-          setCentiseconds(0);
-          setStatus('idle');
-        },
-      },
+      { text: 'รีเซ็ต', onPress: () => { resetTimer(); reset(); } },
     ]);
   }
 
@@ -104,14 +65,7 @@ export default function TimerScreen() {
     if (status === 'running' || status === 'paused') {
       Alert.alert('ออกจากหน้านี้', 'ออกจากหน้านี้จะหยุด timer ชั่วคราว ต้องการออกหรือไม่?', [
         { text: 'ยกเลิก', style: 'cancel' },
-        {
-          text: 'ออก',
-          onPress: () => {
-            clearIntervals();
-            pauseTimer();
-            router.back();
-          },
-        },
+        { text: 'ออก', onPress: () => { pauseTimer(); pause(); router.back(); } },
       ]);
     } else {
       router.back();
@@ -125,14 +79,14 @@ export default function TimerScreen() {
     router.back();
   }
 
-  const statusLabel: Record<TimerStatus, string> = {
+  const statusLabel: Record<typeof status, string> = {
     idle: 'พร้อมเริ่ม',
     running: 'กำลังจับเวลา',
     paused: 'หยุดชั่วคราว',
     stopped: 'หมดเวลา',
   };
 
-  const statusColor: Record<TimerStatus, string> = {
+  const statusColor: Record<typeof status, string> = {
     idle: 'rgba(255,255,255,0.5)',
     running: '#00FF87',
     paused: 'rgba(255,200,80,0.9)',
@@ -143,7 +97,6 @@ export default function TimerScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
       <SafeAreaView style={styles.safe}>
-        {/* Top bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={handleBack}>
             <Text style={styles.backText}>← กลับ</Text>
@@ -152,10 +105,8 @@ export default function TimerScreen() {
           <View style={styles.topSpacer} />
         </View>
 
-        {/* Quest context */}
         <QuestContext quest={quest} />
 
-        {/* Clock */}
         <View style={styles.clockArea}>
           <DigitalClock elapsedSeconds={elapsedSeconds} centiseconds={centiseconds} />
           <Text style={[styles.statusLabel, { color: statusColor[status] }]}>
@@ -164,7 +115,6 @@ export default function TimerScreen() {
           <TimerProgressBar elapsedSeconds={elapsedSeconds} targetSeconds={targetSeconds} />
         </View>
 
-        {/* Controls */}
         <TimerControls
           status={status}
           onPlayPause={handlePlayPause}
@@ -172,7 +122,6 @@ export default function TimerScreen() {
           onReset={handleReset}
         />
 
-        {/* Done button */}
         <Animated.View style={[styles.doneArea, { opacity: doneOpacity }]}>
           <TouchableOpacity
             style={styles.doneBtn}
