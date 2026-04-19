@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Quest, QuestStoreActions, ParentSettings, KidProgress } from '../types';
+import { QUEST_LIBRARY, MANDATORY_IDS, OPTIONAL_LIBRARY } from '../constants/questLibrary';
 
 const DEFAULT_PIN = '1234';
 
@@ -27,12 +28,24 @@ function computeProgress(totalXp: number, streakDays: number, lastStreakDate: st
   };
 }
 
-const defaultQuests: Quest[] = [
-  { id: '1', title: 'ทำการบ้านให้เสร็จ', description: 'ทำการบ้านทุกวิชาให้เสร็จสิ้น', icon: '📚', rewardMinutes: 30, xpReward: 20, completed: false },
-  { id: '2', title: 'ออกกำลังกาย 20 นาที', description: 'วิ่ง กระโดด หรือเล่นกีฬา 20 นาที', icon: '🏃', rewardMinutes: 15, xpReward: 10, completed: false },
-  { id: '3', title: 'ช่วยงานบ้าน', description: 'ช่วยพ่อแม่ทำงานบ้าน เช่น กวาดบ้าน ล้างจาน', icon: '🧹', rewardMinutes: 10, xpReward: 8, completed: false },
-  { id: '4', title: 'อ่านหนังสือ 15 นาที', description: 'อ่านหนังสือที่ชอบอย่างน้อย 15 นาที', icon: '📖', rewardMinutes: 20, xpReward: 15, completed: false },
-];
+function libraryItemToQuest(item: typeof QUEST_LIBRARY[0]): Quest {
+  return {
+    id: item.id,
+    libraryId: item.id,
+    title: item.title,
+    description: item.description,
+    icon: item.icon,
+    rewardMinutes: item.defaultRewardMinutes,
+    xpReward: item.defaultXpReward,
+    isMandatory: item.isMandatory,
+    completed: false,
+  };
+}
+
+const defaultQuests: Quest[] = MANDATORY_IDS.map((id) => {
+  const item = QUEST_LIBRARY.find((q) => q.id === id)!;
+  return libraryItemToQuest(item);
+});
 
 const defaultSettings: ParentSettings = {
   pin: DEFAULT_PIN,
@@ -66,6 +79,7 @@ export const useQuestStore = create<QuestStore>()(
       pinFailCount: 0,
       progress: computeProgress(0, 0, todayString()),
       activeCheer: null,
+      questsLastSentAt: null,
 
       // Computed selectors
       completedQuests: [],
@@ -161,6 +175,34 @@ export const useQuestStore = create<QuestStore>()(
         set({ activeQuestId: questId });
       },
 
+      randomizeQuests: () => {
+        const mandatory = MANDATORY_IDS.map((id) => {
+          const item = QUEST_LIBRARY.find((q) => q.id === id)!;
+          return libraryItemToQuest(item);
+        });
+        const shuffled = [...OPTIONAL_LIBRARY].sort(() => Math.random() - 0.5);
+        const optional = shuffled.slice(0, 3).map(libraryItemToQuest);
+        set({ quests: [...mandatory, ...optional], totalEarnedMinutes: 0, completedQuests: [] });
+      },
+
+      saveQuestsForKid: () => {
+        set({ questsLastSentAt: new Date().toISOString() });
+      },
+
+      addQuestsFromLibrary: (libraryIds: string[]) => {
+        set((state) => {
+          const existingLibraryIds = new Set(state.quests.map((q) => q.libraryId).filter(Boolean));
+          const toAdd = libraryIds
+            .filter((id) => !existingLibraryIds.has(id))
+            .map((id) => {
+              const item = QUEST_LIBRARY.find((q) => q.id === id);
+              return item ? libraryItemToQuest(item) : null;
+            })
+            .filter((q): q is Quest => q !== null);
+          return { quests: [...state.quests, ...toAdd] };
+        });
+      },
+
       tickTimer: () => {
         set((state) => {
           if (!state.timerActive || state.timerRemainingSeconds <= 0) {
@@ -199,6 +241,7 @@ export const useQuestStore = create<QuestStore>()(
           pinFailCount: 0,
           pinLockoutUntil: null,
           progress: computeProgress(0, state.progress.streakDays, state.progress.lastStreakDate),
+          questsLastSentAt: null,
         }));
       },
 
@@ -247,10 +290,12 @@ export const useQuestStore = create<QuestStore>()(
           if (Array.isArray(state['quests'])) {
             state['quests'] = (state['quests'] as Quest[]).map((q) => ({
               ...q,
-              xpReward: q.xpReward ?? Math.round(q.rewardMinutes * 0.6),
+              xpReward: q.xpReward ?? Math.round((q as Quest & { rewardMinutes: number }).rewardMinutes * 0.6),
+              isMandatory: q.isMandatory ?? false,
             }));
           }
         }
+        if (!('questsLastSentAt' in state)) state['questsLastSentAt'] = null;
         return state;
       },
       partialize: (state) => {

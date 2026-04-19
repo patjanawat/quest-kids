@@ -1,3 +1,5 @@
+export type QuestCategory = 'education' | 'exercise' | 'chores' | 'reading' | 'social' | 'health' | 'creativity';
+
 export interface Quest {
   id: string;
   title: string;
@@ -7,6 +9,19 @@ export interface Quest {
   xpReward: number;
   completed: boolean;
   completedAt?: string; // ISO date string
+  isMandatory: boolean;
+  libraryId?: string;
+}
+
+export interface QuestLibraryItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  defaultRewardMinutes: number;
+  defaultXpReward: number;
+  isMandatory: boolean;
+  category: QuestCategory;
 }
 
 export interface KidProfile {
@@ -58,6 +73,7 @@ export interface AppState {
   pinFailCount: number;
   progress: KidProgress;
   activeCheer: CheerMessage | null;
+  questsLastSentAt: string | null;
 }
 
 export interface QuestStoreActions {
@@ -68,6 +84,9 @@ export interface QuestStoreActions {
   denyUnlock: () => void;
   addQuest: (quest: Omit<Quest, 'id' | 'completed' | 'completedAt'>) => void;
   removeQuest: (id: string) => void;
+  randomizeQuests: () => void;
+  saveQuestsForKid: () => void;
+  addQuestsFromLibrary: (libraryIds: string[]) => void;
   startTimer: () => void;
   startQuestTimer: (questId: string) => void;
   tickTimer: () => void;

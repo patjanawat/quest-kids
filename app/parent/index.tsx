@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuestStore } from '../store/questStore';
-import PinInput from '../components/PinInput';
-import QuestForm from '../components/QuestForm';
-import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
+import { useQuestStore } from '../../store/questStore';
+import PinInput from '../../components/PinInput';
+import QuestForm from '../../components/QuestForm';
+import ParentTabBar from '../../components/ParentTabBar';
+import { Colors, Spacing, Typography, BorderRadius } from '../../constants/theme';
 
 type Tab = 'approve' | 'quests' | 'settings';
 
@@ -68,7 +69,7 @@ export default function ParentScreen() {
   }
 
   function handleAddQuest(quest: { title: string; description: string; icon: string; rewardMinutes: number; xpReward: number }) {
-    addQuest(quest);
+    addQuest({ ...quest, isMandatory: false });
     setShowQuestForm(false);
   }
 
@@ -274,6 +275,8 @@ export default function ParentScreen() {
           </View>
         </View>
       </Modal>
+
+      <ParentTabBar />
     </SafeAreaView>
   );
 }
