@@ -51,6 +51,15 @@ export interface KidProgress {
   lastStreakDate: string;
 }
 
+export interface QuestRequest {
+  id: string;
+  kidName: string;
+  requestedAt: string;
+  libraryIds: string[];
+  status: 'pending' | 'approved' | 'denied';
+  respondedAt?: string;
+}
+
 export interface CheerMessage {
   id: string;
   text: string;
@@ -76,6 +85,7 @@ export interface AppState {
   progress: KidProgress;
   activeCheer: CheerMessage | null;
   questsLastSentAt: string | null;
+  pendingQuestRequests: QuestRequest[];
 }
 
 export interface QuestStoreActions {
@@ -101,4 +111,8 @@ export interface QuestStoreActions {
   recordPinFail: () => void;
   resetPinFails: () => void;
   markCheerRead: () => void;
+  approveQuestRequest: (requestId: string) => void;
+  denyQuestRequest: (requestId: string) => void;
+  sendCheer: (text: string, emoji: string) => void;
+  submitQuestRequest: (libraryIds: string[]) => void;
 }

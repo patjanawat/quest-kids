@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, Quest, QuestStoreActions, ParentSettings, KidProgress } from '../types';
+import { AppState, Quest, QuestStoreActions, ParentSettings, KidProgress, QuestRequest } from '../types';
 import { QUEST_LIBRARY, MANDATORY_IDS, OPTIONAL_LIBRARY } from '../constants/questLibrary';
 
 const DEFAULT_PIN = '1234';
@@ -82,6 +82,7 @@ export const useQuestStore = create<QuestStore>()(
       progress: computeProgress(0, 0, todayString()),
       activeCheer: null,
       questsLastSentAt: null,
+      pendingQuestRequests: [],
 
       // Computed selectors
       completedQuests: [],
@@ -232,6 +233,62 @@ export const useQuestStore = create<QuestStore>()(
         setTimeout(() => set({ activeCheer: null }), 0);
       },
 
+      sendCheer: (text: string, emoji: string) => {
+        const cheer = { id: Date.now().toString(), text, emoji, sentAt: new Date().toISOString() };
+        set({ activeCheer: cheer });
+      },
+
+      approveQuestRequest: (requestId: string) => {
+        set((state) => {
+          const req = state.pendingQuestRequests.find((r) => r.id === requestId);
+          if (!req) return {};
+          const existingLibraryIds = new Set(state.quests.map((q) => q.libraryId).filter(Boolean));
+          const toAdd = req.libraryIds
+            .filter((id) => !existingLibraryIds.has(id))
+            .map((id) => {
+              const item = QUEST_LIBRARY.find((q) => q.id === id);
+              if (!item) return null;
+              return {
+                id: `${item.id}-${Date.now()}`,
+                libraryId: item.id,
+                title: item.title,
+                description: item.description,
+                icon: item.icon,
+                rewardMinutes: item.defaultRewardMinutes,
+                xpReward: item.defaultXpReward,
+                isMandatory: false,
+                completed: false,
+              } as Quest;
+            })
+            .filter((q): q is Quest => q !== null);
+          const updatedRequests = state.pendingQuestRequests.map((r) =>
+            r.id === requestId ? { ...r, status: 'approved' as const, respondedAt: new Date().toISOString() } : r
+          );
+          return { quests: [...state.quests, ...toAdd], pendingQuestRequests: updatedRequests };
+        });
+      },
+
+      denyQuestRequest: (requestId: string) => {
+        set((state) => ({
+          pendingQuestRequests: state.pendingQuestRequests.map((r) =>
+            r.id === requestId ? { ...r, status: 'denied' as const, respondedAt: new Date().toISOString() } : r
+          ),
+        }));
+      },
+
+      submitQuestRequest: (libraryIds: string[]) => {
+        set((state) => {
+          const req: QuestRequest = {
+            id: Date.now().toString(),
+            kidName: state.settings.kidProfile.name,
+            requestedAt: new Date().toISOString(),
+            libraryIds,
+            status: 'pending',
+          };
+          return { pendingQuestRequests: [...state.pendingQuestRequests, req] };
+        });
+      },
+
       resetDaily: () => {
         set((state) => ({
           quests: state.quests.map((q) => ({ ...q, completed: false, completedAt: undefined })),
@@ -250,6 +307,7 @@ export const useQuestStore = create<QuestStore>()(
           pinLockoutUntil: null,
           progress: computeProgress(0, state.progress.streakDays, state.progress.lastStreakDate),
           questsLastSentAt: null,
+          pendingQuestRequests: [],
         }));
       },
 
