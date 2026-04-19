@@ -86,6 +86,7 @@ export interface AppState {
   activeCheer: CheerMessage | null;
   questsLastSentAt: string | null;
   pendingQuestRequests: QuestRequest[];
+  hasOnboarded: boolean;
 }
 
 export interface QuestStoreActions {
@@ -115,4 +116,5 @@ export interface QuestStoreActions {
   denyQuestRequest: (requestId: string) => void;
   sendCheer: (text: string, emoji: string) => void;
   submitQuestRequest: (libraryIds: string[]) => void;
+  completeOnboarding: (kidName: string, avatar: string, pin: string) => void;
 }

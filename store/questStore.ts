@@ -83,6 +83,7 @@ export const useQuestStore = create<QuestStore>()(
       activeCheer: null,
       questsLastSentAt: null,
       pendingQuestRequests: [],
+      hasOnboarded: false,
 
       // Computed selectors
       completedQuests: [],
@@ -327,11 +328,18 @@ export const useQuestStore = create<QuestStore>()(
       },
 
       resetPinFails: () => set({ pinFailCount: 0, pinLockoutUntil: null }),
+
+      completeOnboarding: (kidName: string, avatar: string, pin: string) => {
+        set((state) => ({
+          settings: { ...state.settings, kidProfile: { name: kidName, avatar }, pin },
+          hasOnboarded: true,
+        }));
+      },
     }),
     {
       name: 'little-heroes-store',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 2,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
         const boolFields = ['timerActive', 'pendingApproval'] as const;
@@ -362,6 +370,8 @@ export const useQuestStore = create<QuestStore>()(
           }
         }
         if (!('questsLastSentAt' in state)) state['questsLastSentAt'] = null;
+        if (!('pendingQuestRequests' in state)) state['pendingQuestRequests'] = [];
+        if (state['hasOnboarded'] === undefined) state['hasOnboarded'] = true; // existing users skip onboarding
         return state;
       },
       partialize: (state) => {
